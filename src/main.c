@@ -33,7 +33,7 @@ For a C++ project simply rename the file to .cpp and re-run the build script
 typedef enum GameScreen { LOGO = 0, TITLE, GAMEPLAY, ENDING } GameScreen;
 
 typedef struct Note {
-    int y;
+    Vector3 position;
     Color color;
 } Note;
 
@@ -45,10 +45,19 @@ typedef struct Lane {
 
 int main ()
 {
+    Camera camera = { 0 };
+    camera.position = (Vector3){ 11.0f, 2.0f, 1.5f };    // Camera position
+    camera.target = (Vector3){ 0.0f, 0.0f, 1.5f };      // Camera looking at point
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
+    camera.fovy = 100.0f;                                // Camera field-of-view Y
+    camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
+
     const int screenWidth = 800;
     const int screenHeight = 450;
     const int noteWidth = 50;
     const int noteHeight = 20;
+    Vector3 noteSize = { .9f, .9f, .9f };
+
 	// Tell the window to use vysnc and work on high DPI displays
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
 
@@ -76,12 +85,12 @@ int main ()
 
     // map specific information
     int numNotes = 800;
-    int noteSpeed = 3;
+    int noteSpeed = 40;
     int bpm = 138;
     int numLanes = 4;
 
     // basic calculation on note distance per beat
-    double noteGap = 2.0 * noteSpeed * fps * 60 / bpm;
+    double noteGap = noteSpeed * fps / bpm;
 
     // init lanes
     Lane* lanes = malloc(sizeof(Lane) * numLanes);
@@ -94,7 +103,7 @@ int main ()
 
     for (int i = 0; i < numNotes; i++) {
         int lane = rand() % numLanes;
-        lanes[lane].notes[i] = (Note) {(int) (noteGap * (i + 5)), RED};
+        lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i+5.0f),0.0f,lane}, RED};
         lanes[lane].numNotes++;
         // laneD[i] = (Note) {0, (int) (noteGap * (i + 5)), RED};
     }
@@ -134,39 +143,36 @@ int main ()
                 // TODO: Update GAMEPLAY screen variables here!
                 // Press enter to change to ENDING screen
                 for (int i = 0; i < numLanes; i++) {
-                    while (lanes[i].notes[lanes[i].nextNote].y < - noteHeight) {
+                    while (lanes[i].notes[lanes[i].nextNote].position.x > 10.0f) {
                         lanes[i].nextNote++;
-                        printf("skipped a note");
+                        printf("skipped a note at lane %d\n", i);
                     }
                 }
-                // if (notes[nextNote].y == 0) {
-                //     PlaySound(hitsound);
-                //     nextNote++;
-                // }
-                if (IsKeyPressed(KEY_D))
+
+                if (IsKeyPressed(KEY_K))
                 {
-                    if (lanes[0].notes[lanes[0].nextNote].y > - noteHeight && lanes[0].notes[lanes[0].nextNote].y < noteHeight) {
+                    if (lanes[0].notes[lanes[0].nextNote].position.x > 7.0f) {
                         lanes[0].nextNote++;
-                        PlaySound(hitsound);
-                    }
-                }
-                if (IsKeyPressed(KEY_F))
-                {
-                    if (lanes[1].notes[lanes[1].nextNote].y > - noteHeight && lanes[1].notes[lanes[1].nextNote].y < noteHeight) {
-                        lanes[1].nextNote++;
                         PlaySound(hitsound);
                     }
                 }
                 if (IsKeyPressed(KEY_J))
                 {
-                    if (lanes[2].notes[lanes[2].nextNote].y > - noteHeight && lanes[2].notes[lanes[2].nextNote].y < noteHeight) {
+                    if (lanes[1].notes[lanes[1].nextNote].position.x > 7.0f) {
+                        lanes[1].nextNote++;
+                        PlaySound(hitsound);
+                    }
+                }
+                if (IsKeyPressed(KEY_F))
+                {
+                    if (lanes[2].notes[lanes[2].nextNote].position.x > 7.0f) {
                         lanes[2].nextNote++;
                         PlaySound(hitsound);
                     }
                 }
-                if (IsKeyPressed(KEY_K))
+                if (IsKeyPressed(KEY_D))
                 {
-                    if (lanes[3].notes[lanes[3].nextNote].y > - noteHeight && lanes[3].notes[lanes[3].nextNote].y < noteHeight) {
+                    if (lanes[3].notes[lanes[3].nextNote].position.x > 7.0f) {
                         lanes[3].nextNote++;
                         PlaySound(hitsound);
                     }
@@ -176,6 +182,12 @@ int main ()
                     if (pause) {
                         PlayMusicStream(music);
                         pause = false;
+                    }
+                    else {
+                        pause = true;
+                        for (int i = 0; i < numLanes; i++) {
+                            printf("Lane %d has nextNote %d with position x of %f\n", i, lanes[i].nextNote, lanes[i].notes[lanes[i].nextNote].position.x);
+                        }
                     }
                 }
                 else if (IsKeyPressed(KEY_ENTER))
@@ -193,7 +205,7 @@ int main ()
                 if (!pause) {
                     for (int i = 0; i < numLanes; i++) {
                         for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-                            lanes[i].notes[j].y -= noteSpeed;
+                            lanes[i].notes[j].position.x += .2f;
                         }
                     }
                 }
@@ -242,16 +254,21 @@ int main ()
                         DrawText("PRESS SPACE TO START", 240, 220, 20, MAROON);
                     }
 
-                    DrawRectangleLines(screenWidth / 2 - 1.5 * noteWidth, 0, noteWidth, noteHeight, RED);
-                    DrawRectangleLines(screenWidth / 2 - 0.5 * noteWidth, 0, noteWidth, noteHeight, RED);
-                    DrawRectangleLines(screenWidth / 2 + 0.5 * noteWidth, 0, noteWidth, noteHeight, RED);
-                    DrawRectangleLines(screenWidth / 2 + 1.5 * noteWidth, 0, noteWidth, noteHeight, RED);
+                    BeginMode3D(camera);
+                    DrawCubeWires((Vector3){9.0f, 0.0f, 0.0f},0.5f, 1.0f, 1.0f, RED);
+                    DrawCubeWires((Vector3) { 9.0f, 0.0f, 1.0f }, .5f, 1.0f, 1.0f, RED);
+                    DrawCubeWires((Vector3) { 9.0f, 0.0f, 2.0f }, .5f, 1.0f, 1.0f, RED);
+                    DrawCubeWires((Vector3){9.0f, 0.0f, 3.0f},.5f, 1.0f, 1.0f, RED);
 
                     for (int i = 0; i < numLanes; i++) {
                         for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-                            DrawRectangle(screenWidth / 2 + noteWidth * (2 * i - 3) / 2, lanes[i].notes[j].y, noteWidth, noteHeight, lanes[i].notes[j].color);
+                            DrawCubeV(lanes[i].notes[j].position, noteSize, lanes[i].notes[j].color);
                         }
                     }
+
+                    DrawGrid(40, 1.0f);
+
+                    EndMode3D();
 
                 } break;
                 case ENDING:
