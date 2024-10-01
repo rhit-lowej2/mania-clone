@@ -24,6 +24,7 @@ GameScreen currentScreen = LOGO;
 Music music = { 0 };
 Sound hitSound = { 0 };
 Texture wabbit = { 0 };
+Camera camera = { 0 };
 int fps = 60;
 int screenHeight = 450;
 int screenWidth = 800;
@@ -55,6 +56,12 @@ static void UpdateDrawFrame(void);          // Update and draw one frame
 //----------------------------------------------------------------------------------
 int main(void)
 {
+    camera.position = (Vector3){ 11.0f, 2.0f, 1.5f };    // Camera position
+    camera.target = (Vector3){ 0.0f, 0.0f, 1.5f };      // Camera looking at point
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
+    camera.fovy = 100.0f;                                // Camera field-of-view Y
+    camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
+
     // Initialization
     //---------------------------------------------------------
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);

@@ -37,6 +37,7 @@ typedef enum GameScreen { UNKNOWN = -1, LOGO = 0, TITLE, GAMEPLAY, ENDING } Game
 extern Music music;
 extern Sound hitSound;
 extern Texture wabbit;
+extern Camera camera;
 extern int fps;
 extern int screenHeight;
 extern int screenWidth;

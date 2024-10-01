@@ -44,7 +44,6 @@ typedef struct Lane {
 
 static int framesCounter = 0;
 static int finishScreen = 0;
-static Camera camera = { 0 };
 
 static const int noteWidth = 50;
 static const int noteHeight = 20;
@@ -70,20 +69,13 @@ void InitGameplayScreen(void)
     finishScreen = 0;
     pause = true;
 
-    Camera camera = { 0 };
-    camera.position = (Vector3){ 11.0f, 2.0f, 1.5f };   // Camera position
-    camera.target = (Vector3){ 0.0f, 0.0f, 1.5f };      // Camera looking at point
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
-    camera.fovy = 100.0f;                               // Camera field-of-view Y
-    camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
-
     // map specific information
 
     // basic calculation on note distance per beat
     double noteGap = noteSpeed * fps / bpm;
 
     // init lanes
-    Lane* lanes = malloc(sizeof(Lane) * numLanes);
+    lanes = malloc(sizeof(Lane) * numLanes);
 
     for (int i = 0; i < numLanes; i++) {
         lanes[i].notes = malloc(sizeof(Note) * numNotes);
@@ -176,7 +168,6 @@ void UpdateGameplayScreen(void)
 // Gameplay Screen Draw logic
 void DrawGameplayScreen(void)
 {
-    printf("Draw lane %d %p\n", 0, &lanes[0]);
     // TODO: Draw GAMEPLAY screen here!
     DrawRectangle(0, 0, screenWidth, screenHeight, PURPLE);
     // DrawText("GAMEPLAY SCREEN", 20, 20, 40, MAROON);
@@ -191,14 +182,13 @@ void DrawGameplayScreen(void)
     DrawCubeWires((Vector3){9.0f, 0.0f, 3.0f},.5f, 1.0f, 1.0f, RED);
 
     for (int i = 0; i < numLanes; i++) {
-        printf("Draw lane %d %p\n", i, &lanes[i]);
         for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-            printf("\tDraw note %d\n", j);
             DrawCubeV(lanes[i].notes[j].position, noteSize, lanes[i].notes[j].color);
         }
     }
 
-    DrawGrid(40, 1.0f);
+    // DrawGrid(40, 1.0f);
+    for (int i = 0; i < 4; i++) DrawCube((Vector3){0.0f, 0.0f, 0.0f+i},20,0.05f,0.05f, GRAY);
 
     EndMode3D();
 }
