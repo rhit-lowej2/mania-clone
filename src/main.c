@@ -1,301 +1,286 @@
-/*
-Raylib example file.
-This is an example main file for a simple raylib project.
-Use this as a starting point or replace it with your code.
-
-For a C++ project simply rename the file to .cpp and re-run the build script 
-
--- Copyright (c) 2020-2024 Jeffery Myers
---
---This software is provided "as-is", without any express or implied warranty. In no event 
---will the authors be held liable for any damages arising from the use of this software.
-
---Permission is granted to anyone to use this software for any purpose, including commercial 
---applications, and to alter it and redistribute it freely, subject to the following restrictions:
-
---  1. The origin of this software must not be misrepresented; you must not claim that you 
---  wrote the original software. If you use this software in a product, an acknowledgment 
---  in the product documentation would be appreciated but is not required.
---
---  2. Altered source versions must be plainly marked as such, and must not be misrepresented
---  as being the original software.
---
---  3. This notice may not be removed or altered from any source distribution.
-
-*/
+/*******************************************************************************************
+*
+*   raylib game template
+*
+*   <Game title>
+*   <Game description>
+*
+*   This game has been created using raylib (www.raylib.com)
+*   raylib is licensed under an unmodified zlib/libpng license (View raylib.h for details)
+*
+*   Copyright (c) 2021 Ramon Santamaria (@raysan5)
+*
+********************************************************************************************/
 
 #include "raylib.h"
-#include <stdlib.h>
+#include "screens.h"    // NOTE: Declares global (extern) variables and screens functions
 #include <stdio.h>
 
-#include "resource_dir.h"	// utility header for SearchAndSetResourceDir
+//----------------------------------------------------------------------------------
+// Shared Variables Definition (global)
+// NOTE: Those variables are shared between modules through screens.h
+//----------------------------------------------------------------------------------
+GameScreen currentScreen = LOGO;
+Music music = { 0 };
+Sound hitSound = { 0 };
+Texture wabbit = { 0 };
+Camera camera = { 0 };
+int fps = 60;
+int screenHeight = 450;
+int screenWidth = 800;
 
-typedef enum GameScreen { LOGO = 0, TITLE, GAMEPLAY, ENDING } GameScreen;
+//----------------------------------------------------------------------------------
+// Local Variables Definition (local to this module)
+//----------------------------------------------------------------------------------
 
-typedef struct Note {
-    Vector3 position;
-    Color color;
-} Note;
+// Required variables to manage screen transitions (fade-in, fade-out)
+static float transAlpha = 0.0f;
+static bool onTransition = false;
+static bool transFadeOut = false;
+static int transFromScreen = -1;
+static GameScreen transToScreen = UNKNOWN;
 
-typedef struct Lane {
-    Note* notes;
-    int nextNote;
-    int numNotes;
-} Lane;
+//----------------------------------------------------------------------------------
+// Local Functions Declaration
+//----------------------------------------------------------------------------------
+static void ChangeToScreen(GameScreen screen);     // Change to screen, no transition effect
 
-int main ()
+static void TransitionToScreen(GameScreen screen); // Request transition to next screen
+static void UpdateTransition(void);         // Update transition effect
+static void DrawTransition(void);           // Draw transition effect (full-screen rectangle)
+
+static void UpdateDrawFrame(void);          // Update and draw one frame
+
+//----------------------------------------------------------------------------------
+// Main entry point
+//----------------------------------------------------------------------------------
+int main(void)
 {
-    Camera camera = { 0 };
     camera.position = (Vector3){ 11.0f, 2.0f, 1.5f };    // Camera position
     camera.target = (Vector3){ 0.0f, 0.0f, 1.5f };      // Camera looking at point
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
     camera.fovy = 100.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-    const int noteWidth = 50;
-    const int noteHeight = 20;
-    Vector3 noteSize = { .9f, .9f, .9f };
-
-	// Tell the window to use vysnc and work on high DPI displays
+    // Initialization
+    //---------------------------------------------------------
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
 
-	// Create the window and OpenGL context
-	InitWindow(screenWidth, screenHeight, "Hello Raylib");
+    InitWindow(screenWidth, screenHeight, "Hello Raylib");
 
-    InitAudioDevice();              // Initialize audio device
+    InitAudioDevice();      // Initialize audio device
 
+    // Load global data (assets that must be available in all screens, i.e. font)
+    // Utility function from resource_dir.h to find the resources folder and set it as the current working directory so we can load from it
     Music music = LoadMusicStream("resources/foolmoon.mp3");
+    Sound hitSound = LoadSound("resources/drum-hitnormal.wav");
+	// SearchAndSetResourceDir("resources");
+	Texture wabbit = LoadTexture("resources/wabbit_alpha.png");
+
+    SetMusicVolume(music, 1.0f);
     PlayMusicStream(music);
     StopMusicStream(music);
 
-    Sound hitsound = LoadSound("resources/drum-hitnormal.wav");
+    // Setup and init first screen
+    currentScreen = LOGO;
+    InitLogoScreen();
 
-	// Utility function from resource_dir.h to find the resources folder and set it as the current working directory so we can load from it
-	SearchAndSetResourceDir("resources");
+    SetTargetFPS(fps);       // Set the target frame rate to 60 frames per second
+    //--------------------------------------------------------------------------------------
 
-	// Load a texture from the resources directory
-	Texture wabbit = LoadTexture("wabbit_alpha.png");
-	
-	int framesCounter = 0;	// a counter to keep track of how many frames have passed
-    bool pause = true;     // Music pause control flag
-    GameScreen currentScreen = LOGO;	// the current screen we are on
-    int fps = 60;
-
-    // map specific information
-    int numNotes = 800;
-    int noteSpeed = 40;
-    int bpm = 138;
-    int numLanes = 4;
-
-    // basic calculation on note distance per beat
-    double noteGap = noteSpeed * fps / bpm;
-
-    // init lanes
-    Lane* lanes = malloc(sizeof(Lane) * numLanes);
-
-    for (int i = 0; i < numLanes; i++) {
-        lanes[i].notes = malloc(sizeof(Note) * numNotes);
-        lanes[i].nextNote = 0;
-        lanes[i].numNotes = 0;
+    // Main game loop
+    while (!WindowShouldClose())    // Detect window close button or ESC key
+    {
+        UpdateDrawFrame();
     }
 
-    for (int i = 0; i < numNotes; i++) {
-        int lane = rand() % numLanes;
-        lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i+5.0f),0.0f,lane}, RED};
-        lanes[lane].numNotes++;
-        // laneD[i] = (Note) {0, (int) (noteGap * (i + 5)), RED};
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
+    // Unload current screen data before closing
+    switch (currentScreen)
+    {
+        case LOGO: UnloadLogoScreen(); break;
+        case TITLE: UnloadTitleScreen(); break;
+        case GAMEPLAY: UnloadGameplayScreen(); break;
+        case ENDING: UnloadEndingScreen(); break;
+        default: break;
     }
 
-	SetTargetFPS(fps);	// set the target frame rate to 60 frames per second
-	
-	// game loop
-	while (!WindowShouldClose())		// run the loop untill the user presses ESCAPE or presses the Close button on the window
-	{
-        UpdateMusicStream(music);
-		switch(currentScreen)
+    // Unload global data loaded
+    UnloadMusicStream(music);
+    UnloadSound(hitSound);
+    UnloadTexture(wabbit);
+
+    CloseAudioDevice();     // Close audio context
+
+    CloseWindow();          // Close window and OpenGL context
+    //--------------------------------------------------------------------------------------
+
+    return 0;
+}
+
+//----------------------------------------------------------------------------------
+// Module specific Functions Definition
+//----------------------------------------------------------------------------------
+// Change to next screen, no transition
+static void ChangeToScreen(GameScreen screen)
+{
+    // Unload current screen
+    switch (currentScreen)
+    {
+        case LOGO: UnloadLogoScreen(); break;
+        case TITLE: UnloadTitleScreen(); break;
+        case GAMEPLAY: UnloadGameplayScreen(); break;
+        case ENDING: UnloadEndingScreen(); break;
+        default: break;
+    }
+
+    // Init next screen
+    switch (screen)
+    {
+        case LOGO: InitLogoScreen(); break;
+        case TITLE: InitTitleScreen(); break;
+        case GAMEPLAY: InitGameplayScreen(); break;
+        case ENDING: InitEndingScreen(); break;
+        default: break;
+    }
+
+    currentScreen = screen;
+}
+
+// Request transition to next screen
+static void TransitionToScreen(GameScreen screen)
+{
+    onTransition = true;
+    transFadeOut = false;
+    transFromScreen = currentScreen;
+    transToScreen = screen;
+    transAlpha = 0.0f;
+}
+
+// Update transition effect (fade-in, fade-out)
+static void UpdateTransition(void)
+{
+    if (!transFadeOut)
+    {
+        transAlpha += 0.05f;
+
+        // NOTE: Due to float internal representation, condition jumps on 1.0f instead of 1.05f
+        // For that reason we compare against 1.01f, to avoid last frame loading stop
+        if (transAlpha > 1.01f)
+        {
+            transAlpha = 1.0f;
+
+            // Unload current screen
+            switch (transFromScreen)
+            {
+                case LOGO: UnloadLogoScreen(); break;
+                case TITLE: UnloadTitleScreen(); break;
+                case GAMEPLAY: UnloadGameplayScreen(); break;
+                case ENDING: UnloadEndingScreen(); break;
+                default: break;
+            }
+
+            // Load next screen
+            switch (transToScreen)
+            {
+                case LOGO: InitLogoScreen(); break;
+                case TITLE: InitTitleScreen(); break;
+                case GAMEPLAY: InitGameplayScreen(); break;
+                case ENDING: InitEndingScreen(); break;
+                default: break;
+            }
+            currentScreen = transToScreen;
+
+            // Activate fade out effect to next loaded screen
+            transFadeOut = true;
+        }
+    }
+    else  // Transition fade out logic
+    {
+        transAlpha -= 0.02f;
+
+        if (transAlpha < -0.01f)
+        {
+            transAlpha = 0.0f;
+            transFadeOut = false;
+            onTransition = false;
+            transFromScreen = -1;
+            transToScreen = UNKNOWN;
+        }
+    }
+}
+
+// Draw transition effect (full-screen rectangle)
+static void DrawTransition(void)
+{
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, transAlpha));
+}
+
+// Update and draw game frame
+static void UpdateDrawFrame(void)
+{
+    // Update
+    //----------------------------------------------------------------------------------
+    UpdateMusicStream(music);       // NOTE: Music keeps playing between screens
+
+    if (!onTransition)
+    {
+        switch(currentScreen)
         {
             case LOGO:
             {
-                // TODO: Update LOGO screen variables here!
+                UpdateLogoScreen();
 
-                framesCounter++;    // Count frames
+                if (FinishLogoScreen()) TransitionToScreen(TITLE);
 
-                // Wait for 2 seconds (120 frames) before jumping to TITLE screen
-                if (framesCounter > 0)
-                {
-                    currentScreen = TITLE;
-                }
             } break;
             case TITLE:
             {
-                // TODO: Update TITLE screen variables here!
+                UpdateTitleScreen();
+                if (FinishTitleScreen() == GAMEPLAY) TransitionToScreen(GAMEPLAY);
 
-                // Press enter to change to GAMEPLAY screen
-                if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
-                {
-                    currentScreen = GAMEPLAY;
-                }
             } break;
             case GAMEPLAY:
             {
-                // TODO: Update GAMEPLAY screen variables here!
-                // Press enter to change to ENDING screen
-                for (int i = 0; i < numLanes; i++) {
-                    while (lanes[i].notes[lanes[i].nextNote].position.x > 10.0f) {
-                        lanes[i].nextNote++;
-                        printf("skipped a note at lane %d\n", i);
-                    }
-                }
+                UpdateGameplayScreen();
 
-                if (IsKeyPressed(KEY_K))
-                {
-                    if (lanes[0].notes[lanes[0].nextNote].position.x > 7.0f) {
-                        lanes[0].nextNote++;
-                        PlaySound(hitsound);
-                    }
-                }
-                if (IsKeyPressed(KEY_J))
-                {
-                    if (lanes[1].notes[lanes[1].nextNote].position.x > 7.0f) {
-                        lanes[1].nextNote++;
-                        PlaySound(hitsound);
-                    }
-                }
-                if (IsKeyPressed(KEY_F))
-                {
-                    if (lanes[2].notes[lanes[2].nextNote].position.x > 7.0f) {
-                        lanes[2].nextNote++;
-                        PlaySound(hitsound);
-                    }
-                }
-                if (IsKeyPressed(KEY_D))
-                {
-                    if (lanes[3].notes[lanes[3].nextNote].position.x > 7.0f) {
-                        lanes[3].nextNote++;
-                        PlaySound(hitsound);
-                    }
-                }
-                if (IsKeyPressed(KEY_SPACE))
-                {
-                    if (pause) {
-                        PlayMusicStream(music);
-                        pause = false;
-                    }
-                    else {
-                        pause = true;
-                        for (int i = 0; i < numLanes; i++) {
-                            printf("Lane %d has nextNote %d with position x of %f\n", i, lanes[i].nextNote, lanes[i].notes[lanes[i].nextNote].position.x);
-                        }
-                    }
-                }
-                else if (IsKeyPressed(KEY_ENTER))
-                {
-                    currentScreen = ENDING;
-                }
-                // else if (IsKeyPressed(KEY_Z))
-                // {
-                //     if (notes[nextNote].y > - noteHeight / 2 && notes[nextNote].y < noteHeight / 2) {
-                //         nextNote++;
-                //         PlaySound(hitsound);
-                //     }
-                // }
+                if (FinishGameplayScreen() == ENDING) TransitionToScreen(ENDING);
 
-                if (!pause) {
-                    for (int i = 0; i < numLanes; i++) {
-                        for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-                            lanes[i].notes[j].position.x += .2f;
-                        }
-                    }
-                }
             } break;
             case ENDING:
             {
-                // TODO: Update ENDING screen variables here!
+                UpdateEndingScreen();
 
-                // Press enter to return to TITLE screen
-                if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
-                {
-                    currentScreen = TITLE;
-                }
+                if (FinishEndingScreen() == 1) TransitionToScreen(TITLE);
+
             } break;
             default: break;
         }
-		// drawing
-		BeginDrawing();
-
-		// Setup the backbuffer for drawing (clear color and depth buffers)
-		ClearBackground(WHITE);
-
-		switch(currentScreen)
-            {
-                case LOGO:
-                {
-                    // TODO: Draw LOGO screen here!
-                    DrawText("LOGO SCREEN", 20, 20, 40, LIGHTGRAY);
-                    DrawText("WAIT for 2 SECONDS...", 290, 220, 20, GRAY);
-
-                } break;
-                case TITLE:
-                {
-                    // TODO: Draw TITLE screen here!
-                    DrawRectangle(0, 0, screenWidth, screenHeight, GREEN);
-                    DrawText("TITLE SCREEN", 20, 20, 40, DARKGREEN);
-                    DrawText("PRESS ENTER or TAP to JUMP to GAMEPLAY SCREEN", 120, 220, 20, DARKGREEN);
-
-                } break;
-                case GAMEPLAY:
-                {
-                    // TODO: Draw GAMEPLAY screen here!
-                    DrawRectangle(0, 0, screenWidth, screenHeight, PURPLE);
-                    // DrawText("GAMEPLAY SCREEN", 20, 20, 40, MAROON);
-                    if (pause) {
-                        DrawText("PRESS SPACE TO START", 240, 220, 20, MAROON);
-                    }
-
-                    BeginMode3D(camera);
-                    DrawCubeWires((Vector3){9.0f, 0.0f, 0.0f},0.5f, 1.0f, 1.0f, RED);
-                    DrawCubeWires((Vector3) { 9.0f, 0.0f, 1.0f }, .5f, 1.0f, 1.0f, RED);
-                    DrawCubeWires((Vector3) { 9.0f, 0.0f, 2.0f }, .5f, 1.0f, 1.0f, RED);
-                    DrawCubeWires((Vector3){9.0f, 0.0f, 3.0f},.5f, 1.0f, 1.0f, RED);
-
-                    for (int i = 0; i < numLanes; i++) {
-                        for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-                            DrawCubeV(lanes[i].notes[j].position, noteSize, lanes[i].notes[j].color);
-                        }
-                    }
-
-                    DrawGrid(40, 1.0f);
-
-                    EndMode3D();
-
-                } break;
-                case ENDING:
-                {
-                    // TODO: Draw ENDING screen here!
-                    DrawRectangle(0, 0, screenWidth, screenHeight, BLUE);
-                    DrawText("ENDING SCREEN", 20, 20, 40, DARKBLUE);
-                    DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 120, 220, 20, DARKBLUE);
-
-                } break;
-                default: break;
-            }   
-		
-		// end the frame and get ready for the next one  (display frame, poll input, etc...)
-		EndDrawing();
-	}
-
-	// cleanup
-	// unload our texture so it can be cleaned up
-	UnloadTexture(wabbit);
-
-    for (int i = 0; i < numLanes; i++) {
-        free(lanes[i].notes);
     }
-    free(lanes);
+    else UpdateTransition();    // Update transition (fade-in, fade-out)
+    //----------------------------------------------------------------------------------
 
-	// destory the window and cleanup the OpenGL context
-	CloseWindow();
-	return 0;
+    // Draw
+    //----------------------------------------------------------------------------------
+    BeginDrawing();
+
+    ClearBackground(RAYWHITE);
+
+    switch(currentScreen)
+    {
+        case LOGO: DrawLogoScreen(); break;
+        case TITLE: DrawTitleScreen(); break;
+        case GAMEPLAY: DrawGameplayScreen(); break;
+        case ENDING: DrawEndingScreen(); break;
+        default: break;
+    }
+
+    // Draw full screen rectangle in front of everything
+    if (onTransition) DrawTransition();
+
+    //DrawFPS(10, 10);
+
+    EndDrawing();
+    //----------------------------------------------------------------------------------
 }
