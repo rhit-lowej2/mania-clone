@@ -27,6 +27,7 @@
 #include "screens.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "raymath.h"
 
 //----------------------------------------------------------------------------------
 // Module Variables Definition (local)
@@ -65,6 +66,15 @@ static const int numLanes = 4;
 double noteGap;
 static bool pause = true;
 
+// New variables
+int combo = 0;
+int highestCombo = 0;
+int score = 0;
+float health = 100.0f;
+static bool gameOver = false;
+bool victory = false;
+static bool testingMode = false;
+
 //----------------------------------------------------------------------------------
 // Gameplay Screen Functions Definition
 //----------------------------------------------------------------------------------
@@ -72,10 +82,16 @@ static bool pause = true;
 // Gameplay Screen Initialization logic
 void InitGameplayScreen(void)
 {
-    // TODO: Initialize GAMEPLAY screen variables here!
     framesCounter = 0;
     finishScreen = 0;
     pause = true;
+
+    combo = 0;
+    score = 0;
+    health = 100.0f;
+    gameOver = false;
+    victory = false;
+    testingMode = false;
 
     // basic calculation on note distance per beat
     noteGap = noteSpeed * fps * 60 / bpm;
@@ -90,162 +106,129 @@ void InitGameplayScreen(void)
         lanes[i].hasHeldNote = false;
     }
 
-    for (int i = 0; i < numNotes; i++) {
-        int lane = rand() % numLanes;
+    int lastHoldLane = -1;  //track the last lane that had a hold note
+    float holdDelay = 0;    //delay counter after a hold note
+
+    for (float i = 0; i < numNotes; i += 1.0f) {
+        if (holdDelay > 0) {
+            holdDelay -= 1.0f;
+            continue;
+        }
+
+        int lane;
+        do {
+            lane = rand() % numLanes;
+        } while (lane == lastHoldLane);  //ensure we don't select the same lane as the last hold note
+
         if (rand() % chanceHold == 0) {
-            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f),0.0f,lane}, BLUE, 1};
+            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f), 0.0f, lane}, BLUE, 1};
+            lanes[lane].numNotes++;
+            lastHoldLane = lane; 
+            holdDelay = noteGap * 0.25f;  //quarter beat delay before any other note, this is for future modifications if we want to adjust difficulty
         }
         else {
-            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f),0.0f,lane}, RED, 0};
+            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f), 0.0f, lane}, RED, 0};
             lanes[lane].numNotes++;
+            lastHoldLane = -1;  //clear the last hold lane
             if (rand() % chanceHalf == 0) {
-                lane = rand() % numLanes;
-                lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * (i + .5f) + 5.0f),0.0f,lane}, RED, 0};
+                i += 0.5f;  //advance by half a beat for the next note
+                do {
+                    lane = rand() % numLanes;
+                } while (lane == lastHoldLane);  //ensure we don't select the same lane as the last hold note
+                lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f), 0.0f, lane}, RED, 0};
+                lanes[lane].numNotes++;
             }
         }
-        lanes[lane].numNotes++;
-        // laneD[i] = (Note) {0, (int) (noteGap * (i + 5)), RED};
+    }
+}
+
+void HandleKeyPress(int lane)
+{
+    if (lanes[lane].nextNote < lanes[lane].numNotes &&
+        lanes[lane].notes[lanes[lane].nextNote].position.x > 7.0f &&
+        lanes[lane].notes[lanes[lane].nextNote].position.x < 9.5f) {
+        PlaySound(hitSound);
+        combo++;
+        if (combo > highestCombo) highestCombo = combo;  //update highest combo
+        score += 100 * combo;
+        if (!testingMode) {
+            health = Clamp(health + 5.0f, 0.0f, 100.0f);
+        }
+        if (lanes[lane].notes[lanes[lane].nextNote].holdLength) {
+            lanes[lane].hasHeldNote = true;
+            lanes[lane].heldNote = lanes[lane].notes[lanes[lane].nextNote];
+        }
+        lanes[lane].nextNote++; 
+    }
+}
+
+void HandleKeyRelease(int lane)
+{
+    if (lanes[lane].hasHeldNote) {
+        lanes[lane].hasHeldNote = false;
+        if (lanes[lane].heldNote.position.x > 7.0f + noteGap * lanes[lane].heldNote.holdLength) {
+            PlaySound(hitSound);
+            combo++;
+            if (combo > highestCombo) highestCombo = combo;  //update highest combo
+            score += 100 * combo;
+            if (!testingMode) {
+                health = Clamp(health + 5.0f, 0.0f, 100.0f);
+            }
+            
+            if (lanes[lane].nextNote < lanes[lane].numNotes &&
+                lanes[lane].notes[lanes[lane].nextNote].position.x > 7.0f &&
+                lanes[lane].notes[lanes[lane].nextNote].position.x < 9.5f) {
+                lanes[lane].nextNote++;
+            }
+        } else {
+            combo = 0;
+        }
     }
 }
 
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void)
 {
-    // TODO: Update GAMEPLAY screen variables here!
-
-    for (int i = 0; i < numLanes; i++) {
-        while (lanes[i].notes[lanes[i].nextNote].position.x > 10.0f) {
-            lanes[i].nextNote++;
-            printf("skipped a note at lane %d\n", i);
+    if (gameOver || victory) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            finishScreen = 1;  //this will trigger the transition to the ENDING screen
         }
+        return;
     }
 
-    if (IsKeyPressed(KEY_K))
-    {
-        if (lanes[0].notes[lanes[0].nextNote].position.x > 7.0f)
-        {
-            PlaySound(hitSound);
-            if (lanes[0].notes[lanes[0].nextNote].holdLength)
-            {
-                lanes[0].hasHeldNote = true;
-                lanes[0].heldNote = lanes[0].notes[lanes[0].nextNote];
-            }
-            else
-            {
-                lanes[0].nextNote++;
-            }
-        }
-    }
-    if (IsKeyPressed(KEY_J))
-    {
-        if (lanes[1].notes[lanes[1].nextNote].position.x > 7.0f)
-        {
-            PlaySound(hitSound);
-            if (lanes[1].notes[lanes[1].nextNote].holdLength)
-            {
-                lanes[1].hasHeldNote = true;
-                lanes[1].heldNote = lanes[1].notes[lanes[1].nextNote];
-            }
-            else
-            {
-                lanes[1].nextNote++;
-            }
-        }
-    }
-    if (IsKeyPressed(KEY_F))
-    {
-        if (lanes[2].notes[lanes[2].nextNote].position.x > 7.0f)
-        {
-            PlaySound(hitSound);
-            if (lanes[2].notes[lanes[2].nextNote].holdLength)
-            {
-                lanes[2].hasHeldNote = true;
-                lanes[2].heldNote = lanes[2].notes[lanes[2].nextNote];
-            }
-            else
-            {
-                lanes[2].nextNote++;
-            }
-        }
-    }
-    if (IsKeyPressed(KEY_D))
-    {
-        if (lanes[3].notes[lanes[3].nextNote].position.x > 7.0f)
-        {
-            PlaySound(hitSound);
-            if (lanes[3].notes[lanes[3].nextNote].holdLength)
-            {
-                lanes[3].hasHeldNote = true;
-                lanes[3].heldNote = lanes[3].notes[lanes[3].nextNote];
-            }
-            else
-            {
-                lanes[3].nextNote++;
-            }
-        }
-    }
-    if (IsKeyReleased(KEY_K))
-    {
-        if (lanes[0].hasHeldNote) {
-            lanes[0].hasHeldNote = false;
-            if (lanes[0].heldNote.position.x > 7.0f + noteGap * lanes[0].heldNote.holdLength) {
-                PlaySound(hitSound);
-            }
-        }
-    }
-    if (IsKeyReleased(KEY_J))
-    {
-        if (lanes[1].hasHeldNote) {
-            lanes[1].hasHeldNote = false;
-            if (lanes[1].heldNote.position.x > 7.0f + noteGap * lanes[1].heldNote.holdLength) {
-                PlaySound(hitSound);
-            }
-        }
-    }
-    if (IsKeyReleased(KEY_F))
-    {
-        if (lanes[2].hasHeldNote) {
-            lanes[2].hasHeldNote = false;
-            if (lanes[2].heldNote.position.x > 7.0f + noteGap * lanes[2].heldNote.holdLength) {
-                PlaySound(hitSound);
-            }
-        }
-    }
-    if (IsKeyReleased(KEY_D))
-    {
-        if (lanes[3].hasHeldNote) {
-            lanes[3].hasHeldNote = false;
-            if (lanes[3].heldNote.position.x > 7.0f + noteGap * lanes[3].heldNote.holdLength) {
-                PlaySound(hitSound);
-            }
-        }
-    }
-    if (IsKeyPressed(KEY_SPACE))
-    {
+    if (IsKeyPressed(KEY_SPACE)) {
         if (pause) {
             PlayMusicStream(music);
             pause = false;
-        }
-        else {
+        } else {
             pause = true;
-            for (int i = 0; i < numLanes; i++) {
-                printf("Lane %d has nextNote %d with position x of %f\n", i, lanes[i].nextNote, lanes[i].notes[lanes[i].nextNote].position.x);
-            }
+            PauseMusicStream(music);
         }
     }
-    else if (IsKeyPressed(KEY_ENTER))
-    {
-        finishScreen = ENDING;
+
+    // adding a testing mode so you can step away from the rhythm game and it'll keep playing til the end of the song (victory)
+    if (IsKeyPressed(KEY_T)) {
+        testingMode = !testingMode;
+        if (testingMode) {
+            health = 100.0f;  //reset health to full when entering testing mode
+        }
     }
-    // else if (IsKeyPressed(KEY_Z))
-    // {
-    //     if (notes[nextNote].y > - noteHeight / 2 && notes[nextNote].y < noteHeight / 2) {
-    //         nextNote++;
-    //         PlaySound(hitsound);
-    //     }
-    // }
 
     if (!pause) {
+        UpdateMusicStream(music);
+
+        if (health <= 0 && !testingMode) {
+            gameOver = true;
+            StopMusicStream(music);
+        }
+
+        //check for victory condition
+        if (!IsMusicStreamPlaying(music) || GetMusicTimePlayed(music) >= GetMusicTimeLength(music) - 0.1f) {
+            victory = true;
+            StopMusicStream(music);
+        }
+
+        // Update note positions
         for (int i = 0; i < numLanes; i++) {
             for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
                 lanes[i].notes[j].position.x += noteSpeed;
@@ -254,15 +237,36 @@ void UpdateGameplayScreen(void)
                 lanes[i].heldNote.position.x += noteSpeed;
             }
         }
+
+        // Handle input and scoring
+        if (IsKeyPressed(KEY_D)) HandleKeyPress(3);
+        if (IsKeyPressed(KEY_F)) HandleKeyPress(2);
+        if (IsKeyPressed(KEY_J)) HandleKeyPress(1);
+        if (IsKeyPressed(KEY_K)) HandleKeyPress(0);
+
+        if (IsKeyReleased(KEY_D)) HandleKeyRelease(3);
+        if (IsKeyReleased(KEY_F)) HandleKeyRelease(2);
+        if (IsKeyReleased(KEY_J)) HandleKeyRelease(1);
+        if (IsKeyReleased(KEY_K)) HandleKeyRelease(0);
+
+        // Check for missed notes
+        for (int i = 0; i < numLanes; i++) {
+            while (lanes[i].nextNote < lanes[i].numNotes && lanes[i].notes[lanes[i].nextNote].position.x > 10.0f) {
+                lanes[i].nextNote++;
+                combo = 0;
+                if (!testingMode) {
+                    health = Clamp(health - 5.0f, 0.0f, 100.0f);
+                }
+            }
+        }
     }
 }
 
 // Gameplay Screen Draw logic
 void DrawGameplayScreen(void)
 {
-    // TODO: Draw GAMEPLAY screen here!
     DrawRectangle(0, 0, screenWidth, screenHeight, PURPLE);
-    // DrawText("GAMEPLAY SCREEN", 20, 20, 40, MAROON);
+
     if (pause) {
         DrawText("PRESS SPACE TO START", 240, 220, 20, MAROON);
     }
@@ -291,16 +295,40 @@ void DrawGameplayScreen(void)
         }
     }
 
-    // DrawGrid(40, 1.0f);
     for (int i = 0; i < 4; i++) DrawCube((Vector3){0.0f, 0.0f, 0.0f+i},20,0.05f,0.05f, GRAY);
 
     EndMode3D();
+
+    //draw UI
+    DrawText(TextFormat("Combo: %d", combo), 10, 10, 20, WHITE);
+    DrawText(TextFormat("Score: %d", score), 10, 40, 20, WHITE);
+    
+    //draw health bar
+    DrawRectangle(10, 70, 200, 20, RED);
+    DrawRectangle(10, 70, (int)(health * 2), 20, GREEN);
+    DrawRectangleLines(10, 70, 200, 20, WHITE);
+
+    //show testing mode indicator
+    if (testingMode) {
+        DrawText("TESTING MODE", screenWidth - MeasureText("TESTING MODE", 20) - 10, 10, 20, YELLOW);
+    }
+
+    if (gameOver) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+        DrawText("GAME OVER", screenWidth/2 - MeasureText("GAME OVER", 40)/2, screenHeight/2 - 40, 40, RED);
+        DrawText("Press ENTER to return to title", screenWidth/2 - MeasureText("Press ENTER to return to title", 20)/2, screenHeight/2 + 20, 20, WHITE);
+    } else if (victory) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(WHITE, 0.7f));
+        DrawText("VICTORY!", screenWidth/2 - MeasureText("VICTORY!", 40)/2, screenHeight/2 - 40, 40, GREEN);
+        //DrawText(TextFormat("Final Score: %d", score), screenWidth/2 - MeasureText("Final Score: 0000000", 20)/2, screenHeight/2, 20, BLACK);
+        //DrawText(TextFormat("Highest Combo: %d", highestCombo), screenWidth/2 - MeasureText("Highest Combo: 0000", 20)/2, screenHeight/2 + 30, 20, BLACK);
+        DrawText("Press ENTER to show gameplay results", screenWidth/2 - MeasureText("Press ENTER to show gameplay results", 20)/2, screenHeight/2 + 60, 20, BLACK);
+    }
 }
 
 // Gameplay Screen Unload logic
 void UnloadGameplayScreen(void)
 {
-    // TODO: Unload GAMEPLAY screen variables here!
     for (int i = 0; i < numLanes; i++) {
         free(lanes[i].notes);
     }

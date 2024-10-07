@@ -52,19 +52,31 @@ void UpdateEndingScreen(void)
     // Press enter or tap to return to TITLE screen
     if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
     {
-        finishScreen = TITLE;
+        finishScreen = 1;
+        PlaySound(hitSound);
     }
 }
 
 // Ending Screen Draw logic
 void DrawEndingScreen(void)
 {
-    // TODO: Draw ENDING screen here!
     DrawRectangle(0, 0, screenWidth, screenHeight, BLUE);
-    DrawText("ENDING SCREEN", 20, 20, 40, DARKBLUE);
-    DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 120, 220, 20, DARKBLUE);
+    
+    if (victory)
+    {
+        DrawText("VICTORY!", screenWidth/2 - MeasureText("VICTORY!", 40)/2, screenHeight/2 - 60, 40, GREEN);
+    }
+    else
+    {
+        DrawText("GAME OVER", screenWidth/2 - MeasureText("GAME OVER", 40)/2, screenHeight/2 - 60, 40, RED);
+    }
+    
+    //display final score and highest combo for both victory and game over
+    DrawText(TextFormat("Final Score: %d", score), screenWidth/2 - MeasureText("Final Score: 0000000", 20)/2, screenHeight/2, 20, WHITE);
+    DrawText(TextFormat("Highest Combo: %d", highestCombo), screenWidth/2 - MeasureText("Highest Combo: 0000", 20)/2, screenHeight/2 + 30, 20, WHITE);
+    
+    DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", screenWidth/2 - MeasureText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 20)/2, screenHeight - 50, 20, DARKBLUE);
 }
-
 // Ending Screen Unload logic
 void UnloadEndingScreen(void)
 {
