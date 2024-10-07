@@ -41,6 +41,9 @@ extern Camera camera;
 extern int fps;
 extern int screenHeight;
 extern int screenWidth;
+extern bool victory;
+extern int score;
+extern int highestCombo;
 
 //----------------------------------------------------------------------------------
 // Logo Screen Functions Declaration

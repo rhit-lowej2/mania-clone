@@ -66,7 +66,7 @@ int main(void)
     //---------------------------------------------------------
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
 
-    InitWindow(screenWidth, screenHeight, "Hello Raylib");
+    InitWindow(screenWidth, screenHeight, "Raylib Mania");
 
     InitAudioDevice();      // Initialize audio device
 
@@ -231,29 +231,25 @@ static void UpdateDrawFrame(void)
             case LOGO:
             {
                 UpdateLogoScreen();
-
                 if (FinishLogoScreen()) TransitionToScreen(TITLE);
-
             } break;
             case TITLE:
             {
                 UpdateTitleScreen();
-                if (FinishTitleScreen() == GAMEPLAY) TransitionToScreen(GAMEPLAY);
-
+                int finishTitleScreen = FinishTitleScreen();
+                if (finishTitleScreen) TransitionToScreen(GAMEPLAY);
             } break;
             case GAMEPLAY:
             {
                 UpdateGameplayScreen();
-
-                if (FinishGameplayScreen() == ENDING) TransitionToScreen(ENDING);
-
+                int finishGameplayScreen = FinishGameplayScreen();
+                if (finishGameplayScreen) TransitionToScreen(ENDING);
             } break;
             case ENDING:
             {
                 UpdateEndingScreen();
-
-                if (FinishEndingScreen() == 1) TransitionToScreen(TITLE);
-
+                int finishEndingScreen = FinishEndingScreen();
+                if (finishEndingScreen) TransitionToScreen(TITLE);
             } break;
             default: break;
         }
@@ -265,21 +261,21 @@ static void UpdateDrawFrame(void)
     //----------------------------------------------------------------------------------
     BeginDrawing();
 
-    ClearBackground(RAYWHITE);
+        ClearBackground(RAYWHITE);
 
-    switch(currentScreen)
-    {
-        case LOGO: DrawLogoScreen(); break;
-        case TITLE: DrawTitleScreen(); break;
-        case GAMEPLAY: DrawGameplayScreen(); break;
-        case ENDING: DrawEndingScreen(); break;
-        default: break;
-    }
+        switch(currentScreen)
+        {
+            case LOGO: DrawLogoScreen(); break;
+            case TITLE: DrawTitleScreen(); break;
+            case GAMEPLAY: DrawGameplayScreen(); break;
+            case ENDING: DrawEndingScreen(); break;
+            default: break;
+        }
 
-    // Draw full screen rectangle in front of everything
-    if (onTransition) DrawTransition();
+        // Draw full screen rectangle in front of everything
+        if (onTransition) DrawTransition();
 
-    //DrawFPS(10, 10);
+        //DrawFPS(10, 10);
 
     EndDrawing();
     //----------------------------------------------------------------------------------
