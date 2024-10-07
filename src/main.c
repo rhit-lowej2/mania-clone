@@ -72,8 +72,8 @@ int main(void)
 
     // Load global data (assets that must be available in all screens, i.e. font)
     // Utility function from resource_dir.h to find the resources folder and set it as the current working directory so we can load from it
-    Music music = LoadMusicStream("resources/foolmoon.mp3");
-    Sound hitSound = LoadSound("resources/drum-hitnormal.wav");
+    music = LoadMusicStream("resources/foolmoon.mp3");
+    hitSound = LoadSound("resources/drum-hitnormal.wav");
 	// SearchAndSetResourceDir("resources");
 	Texture wabbit = LoadTexture("resources/wabbit_alpha.png");
 

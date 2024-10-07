@@ -31,15 +31,19 @@
 //----------------------------------------------------------------------------------
 // Module Variables Definition (local)
 //----------------------------------------------------------------------------------
+
 typedef struct Note {
     Vector3 position;
     Color color;
+    int holdLength;
 } Note;
 
 typedef struct Lane {
     Note* notes;
     int nextNote;
     int numNotes;
+    Note heldNote;
+    bool hasHeldNote;
 } Lane;
 
 static int framesCounter = 0;
@@ -52,9 +56,13 @@ static Vector3 noteSize = { .9f, .9f, .9f };
 
 static Lane* lanes;
 static const int numNotes = 800;
-static const int noteSpeed = 40;
+static const double noteSpeed = .2f;
+static const int chanceHold = 10;
+static const int chanceHalf = 5;
 static const int bpm = 138;
 static const int numLanes = 4;
+
+double noteGap;
 static bool pause = true;
 
 //----------------------------------------------------------------------------------
@@ -69,10 +77,8 @@ void InitGameplayScreen(void)
     finishScreen = 0;
     pause = true;
 
-    // map specific information
-
     // basic calculation on note distance per beat
-    double noteGap = noteSpeed * fps / bpm;
+    noteGap = noteSpeed * fps * 60 / bpm;
 
     // init lanes
     lanes = malloc(sizeof(Lane) * numLanes);
@@ -81,11 +87,22 @@ void InitGameplayScreen(void)
         lanes[i].notes = malloc(sizeof(Note) * numNotes);
         lanes[i].nextNote = 0;
         lanes[i].numNotes = 0;
+        lanes[i].hasHeldNote = false;
     }
 
     for (int i = 0; i < numNotes; i++) {
         int lane = rand() % numLanes;
-        lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i+5.0f),0.0f,lane}, RED};
+        if (rand() % chanceHold == 0) {
+            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f),0.0f,lane}, BLUE, 1};
+        }
+        else {
+            lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f),0.0f,lane}, RED, 0};
+            lanes[lane].numNotes++;
+            if (rand() % chanceHalf == 0) {
+                lane = rand() % numLanes;
+                lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * (i + .5f) + 5.0f),0.0f,lane}, RED, 0};
+            }
+        }
         lanes[lane].numNotes++;
         // laneD[i] = (Note) {0, (int) (noteGap * (i + 5)), RED};
     }
@@ -105,30 +122,102 @@ void UpdateGameplayScreen(void)
 
     if (IsKeyPressed(KEY_K))
     {
-        if (lanes[0].notes[lanes[0].nextNote].position.x > 7.0f) {
-            lanes[0].nextNote++;
+        if (lanes[0].notes[lanes[0].nextNote].position.x > 7.0f)
+        {
             PlaySound(hitSound);
+            if (lanes[0].notes[lanes[0].nextNote].holdLength)
+            {
+                lanes[0].hasHeldNote = true;
+                lanes[0].heldNote = lanes[0].notes[lanes[0].nextNote];
+            }
+            else
+            {
+                lanes[0].nextNote++;
+            }
         }
     }
     if (IsKeyPressed(KEY_J))
     {
-        if (lanes[1].notes[lanes[1].nextNote].position.x > 7.0f) {
-            lanes[1].nextNote++;
+        if (lanes[1].notes[lanes[1].nextNote].position.x > 7.0f)
+        {
             PlaySound(hitSound);
+            if (lanes[1].notes[lanes[1].nextNote].holdLength)
+            {
+                lanes[1].hasHeldNote = true;
+                lanes[1].heldNote = lanes[1].notes[lanes[1].nextNote];
+            }
+            else
+            {
+                lanes[1].nextNote++;
+            }
         }
     }
     if (IsKeyPressed(KEY_F))
     {
-        if (lanes[2].notes[lanes[2].nextNote].position.x > 7.0f) {
-            lanes[2].nextNote++;
+        if (lanes[2].notes[lanes[2].nextNote].position.x > 7.0f)
+        {
             PlaySound(hitSound);
+            if (lanes[2].notes[lanes[2].nextNote].holdLength)
+            {
+                lanes[2].hasHeldNote = true;
+                lanes[2].heldNote = lanes[2].notes[lanes[2].nextNote];
+            }
+            else
+            {
+                lanes[2].nextNote++;
+            }
         }
     }
     if (IsKeyPressed(KEY_D))
     {
-        if (lanes[3].notes[lanes[3].nextNote].position.x > 7.0f) {
-            lanes[3].nextNote++;
+        if (lanes[3].notes[lanes[3].nextNote].position.x > 7.0f)
+        {
             PlaySound(hitSound);
+            if (lanes[3].notes[lanes[3].nextNote].holdLength)
+            {
+                lanes[3].hasHeldNote = true;
+                lanes[3].heldNote = lanes[3].notes[lanes[3].nextNote];
+            }
+            else
+            {
+                lanes[3].nextNote++;
+            }
+        }
+    }
+    if (IsKeyReleased(KEY_K))
+    {
+        if (lanes[0].hasHeldNote) {
+            lanes[0].hasHeldNote = false;
+            if (lanes[0].heldNote.position.x > 7.0f + noteGap * lanes[0].heldNote.holdLength) {
+                PlaySound(hitSound);
+            }
+        }
+    }
+    if (IsKeyReleased(KEY_J))
+    {
+        if (lanes[1].hasHeldNote) {
+            lanes[1].hasHeldNote = false;
+            if (lanes[1].heldNote.position.x > 7.0f + noteGap * lanes[1].heldNote.holdLength) {
+                PlaySound(hitSound);
+            }
+        }
+    }
+    if (IsKeyReleased(KEY_F))
+    {
+        if (lanes[2].hasHeldNote) {
+            lanes[2].hasHeldNote = false;
+            if (lanes[2].heldNote.position.x > 7.0f + noteGap * lanes[2].heldNote.holdLength) {
+                PlaySound(hitSound);
+            }
+        }
+    }
+    if (IsKeyReleased(KEY_D))
+    {
+        if (lanes[3].hasHeldNote) {
+            lanes[3].hasHeldNote = false;
+            if (lanes[3].heldNote.position.x > 7.0f + noteGap * lanes[3].heldNote.holdLength) {
+                PlaySound(hitSound);
+            }
         }
     }
     if (IsKeyPressed(KEY_SPACE))
@@ -159,7 +248,10 @@ void UpdateGameplayScreen(void)
     if (!pause) {
         for (int i = 0; i < numLanes; i++) {
             for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-                lanes[i].notes[j].position.x += .2f;
+                lanes[i].notes[j].position.x += noteSpeed;
+            }
+            if (lanes[i].hasHeldNote) {
+                lanes[i].heldNote.position.x += noteSpeed;
             }
         }
     }
@@ -183,7 +275,19 @@ void DrawGameplayScreen(void)
 
     for (int i = 0; i < numLanes; i++) {
         for (int j = lanes[i].nextNote; j < lanes[i].numNotes; j++) {
-            DrawCubeV(lanes[i].notes[j].position, noteSize, lanes[i].notes[j].color);
+            if (lanes[i].notes[j].holdLength && !lanes[i].hasHeldNote) {
+                int newX = lanes[i].notes[j].position.x - noteGap * lanes[i].notes[j].holdLength / 2;
+                Vector3 newPos = {newX, lanes[i].notes[j].position.y, lanes[i].notes[j].position.z};
+                DrawCubeV(newPos, (Vector3){noteGap * lanes[i].notes[j].holdLength + noteSize.x, noteSize.y, noteSize.z}, lanes[i].notes[j].color);
+            }
+            else {
+                DrawCubeV(lanes[i].notes[j].position, noteSize, lanes[i].notes[j].color);
+            }
+        }
+        if (lanes[i].hasHeldNote) {
+            int newX = lanes[i].heldNote.position.x - noteGap * lanes[i].heldNote.holdLength / 2;
+            Vector3 newPos = {newX, lanes[i].heldNote.position.y, lanes[i].heldNote.position.z};
+            DrawCubeV(newPos, (Vector3){noteGap * lanes[i].heldNote.holdLength + noteSize.x, noteSize.y, noteSize.z}, lanes[i].heldNote.color);
         }
     }
 
