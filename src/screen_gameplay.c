@@ -87,6 +87,7 @@ void InitGameplayScreen(void)
     pause = true;
 
     combo = 0;
+    highestCombo = 0;
     score = 0;
     health = 100.0f;
     gameOver = false;
@@ -131,11 +132,11 @@ void InitGameplayScreen(void)
             lanes[lane].numNotes++;
             lastHoldLane = -1;  //clear the last hold lane
             if (rand() % chanceHalf == 0) {
-                i += 0.5f;  //advance by half a beat for the next note
+                //i += 0.5f;  //advance by half a beat for the next note
                 do {
                     lane = rand() % numLanes;
                 } while (lane == lastHoldLane);  //ensure we don't select the same lane as the last hold note
-                lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * i + 5.0f), 0.0f, lane}, RED, 0};
+                lanes[lane].notes[lanes[lane].numNotes] = (Note){ (Vector3) { -(noteGap * (i +0.5f) + 5.0f), 0.0f, lane}, RED, 0};
                 lanes[lane].numNotes++;
             }
         }

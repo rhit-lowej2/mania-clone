@@ -64,16 +64,16 @@ void DrawEndingScreen(void)
     
     if (victory)
     {
-        DrawText("VICTORY!", screenWidth/2 - MeasureText("VICTORY!", 40)/2, screenHeight/2 - 60, 40, GREEN);
+        DrawText("GAME OVER!", screenWidth/2 - MeasureText("GAME OVER!", 40)/2, screenHeight/2 - 60, 40, BLACK);
     }
-    else
-    {
-        DrawText("GAME OVER", screenWidth/2 - MeasureText("GAME OVER", 40)/2, screenHeight/2 - 60, 40, RED);
-    }
+    // else
+    // {
+    //     DrawText("GAME OVER", screenWidth/2 - MeasureText("GAME OVER", 40)/2, screenHeight/2 - 60, 40, RED);
+    // }
     
     //display final score and highest combo for both victory and game over
-    DrawText(TextFormat("Final Score: %d", score), screenWidth/2 - MeasureText("Final Score: 0000000", 20)/2, screenHeight/2, 20, WHITE);
-    DrawText(TextFormat("Highest Combo: %d", highestCombo), screenWidth/2 - MeasureText("Highest Combo: 0000", 20)/2, screenHeight/2 + 30, 20, WHITE);
+    DrawText(TextFormat("Final Score: %d", score), screenWidth/2 - MeasureText("Final Score:", 20)/2, screenHeight/2, 20, WHITE);
+    DrawText(TextFormat("Highest Combo: %d", highestCombo), screenWidth/2 - MeasureText("Highest Combo:", 20)/2, screenHeight/2 + 30, 20, WHITE);
     
     DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", screenWidth/2 - MeasureText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 20)/2, screenHeight - 50, 20, DARKBLUE);
 }
