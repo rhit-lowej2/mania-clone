@@ -125,7 +125,7 @@
 #### ii) Beck likely believes that this is something that should be done by writing good code and by writing tests that align with these selections: “Maintain only the code and the tests as permanent artifacts.” Because there are no other artifacts, the history of these decisions must lie in these two areas, along with the technique of using “social mechanisms to keep alive important history of the project.” Effectively, Beck is saying that between code/tests and word of mouth, decisions should be able to be reproduced at a later point.
 #### iii) Our project doesn’t quite fulfill the Beck vision of using only code and tests as we’re keeping meeting minutes and design documents to capture our decisions.
 ### d. Select or develop supporting modeling techniques and tools
-#### i) d (ask someone about this)
+#### i) d
 #### ii) This also falls under Beck’s incremental design philosophy: “” He would want us to develop the tools and techniques a small amount at a time.
 #### iii) We are developing our model of the OpenXR component piece by piece to ensure that we have a working version of it that we can integrate into Raylib.
 ## 3. Develop models and views of candidate architectures
